@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   Alert,
   Box,
@@ -30,6 +30,8 @@ interface GameHistory {
 
 type Condition = "over" | "under";
 
+const LOCAL_STORAGE_KEY = "diceGameHistory";
+
 const DiceGame: React.FC = () => {
   const [threshold, setThreshold] = useState<number>(50);
   const [condition, setCondition] = useState<Condition>("over");
@@ -38,6 +40,29 @@ const DiceGame: React.FC = () => {
   const [alertMessage, setAlertMessage] = useState<string>("");
   const [alertSeverity, setAlertSeverity] = useState<"success" | "error">("success");
   const [loading, setLoading] = useState<boolean>(false);
+
+  // сохранениe истории в localStorage
+  const saveHistoryToLocalStorage = useCallback((updatedHistory: GameHistory[]) => {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedHistory));
+  }, []);
+
+  //загрузкa истории из localStorage
+  const loadHistoryFromLocalStorage = useCallback(() => {
+    const savedHistory = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (savedHistory) {
+      try {
+        const parsedHistory: GameHistory[] = JSON.parse(savedHistory);
+        setHistory(parsedHistory);
+      } catch (error) {
+        console.error("Failed to parse history from localStorage", error);
+      }
+    }
+  }, []);
+
+  // Загрузка истории при монтировании 
+  useEffect(() => {
+    loadHistoryFromLocalStorage();
+  }, [loadHistoryFromLocalStorage]);
 
   const handlePlay = useCallback(() => {
     setLoading(true);
@@ -63,13 +88,17 @@ const DiceGame: React.FC = () => {
         const updatedHistory = [
           { time: currentTime, guess: `${condition} ${threshold}`, result: diceResult, isWin },
           ...prev,
-        ];
-        return updatedHistory.slice(0, 10); 
+        ].slice(0, 10); 
+
+        // Сохранение обновленной истории в localStorage
+        saveHistoryToLocalStorage(updatedHistory);
+
+        return updatedHistory;
       });
 
       setLoading(false);
     }, 1000); // симуляции загрузки
-  }, [condition, threshold]);
+  }, [condition, threshold, saveHistoryToLocalStorage]);
 
   const handleThresholdChange = (_event: Event, newValue: number | number[]) => {
     setThreshold(newValue as number);
@@ -117,7 +146,7 @@ const DiceGame: React.FC = () => {
         />
       </Box>
 
-      {/* Радио-кнопки для выбора over / less */}
+      {/* Радио-кнопки для выбора условия over / less*/}
       <RadioGroup
         value={condition}
         onChange={(e) => setCondition(e.target.value as Condition)}
